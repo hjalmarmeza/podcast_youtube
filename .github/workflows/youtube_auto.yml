@@ -1,0 +1,35 @@
+name: Motor MusiChris Studio (Subida Diaria)
+
+on:
+  schedule:
+    - cron: '0 14 * * *' # Ejecuta todos los días a las 14:00 UTC
+  workflow_dispatch: # Permite ejecutarlo manualmente desde GitHub
+
+jobs:
+  upload_video:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v3
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Instalar dependencias del sistema para MoviePy
+        run: sudo apt-get update && sudo apt-get install -y imagemagick ffmpeg libsm6 libxext6
+
+      - name: Instalar dependencias de Python
+        run: pip install -r requirements.txt
+
+      - name: Configurar Credenciales de Google
+        run: |
+          echo '${{ secrets.YOUTUBE_CREDENTIALS_JSON }}' > credentials.json
+          echo '${{ secrets.YOUTUBE_TOKEN_JSON }}' > token.json
+
+      - name: Ejecutar Subida Automática Diaria
+        env:
+          DEEPINFRA_API_KEY: ${{ secrets.DEEPINFRA_API_KEY }}
+        run: python uploader_diario.py
