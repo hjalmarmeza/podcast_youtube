@@ -105,6 +105,18 @@ def upload_video(youtube, file_path, title, description, thumbnail_path=None):
             
     video_id = response.get("id")
     print(f"Subida completada. Video ID: {video_id}")
+    
+    if thumbnail_path and os.path.exists(thumbnail_path):
+        print("Subiendo miniatura personalizada...")
+        try:
+            youtube.thumbnails().set(
+                videoId=video_id,
+                media_body=MediaFileUpload(thumbnail_path)
+            ).execute()
+            print("Miniatura subida exitosamente.")
+        except Exception as e:
+            print(f"Error al subir la miniatura: {e}")
+            
     return video_id
 
 def get_or_create_playlist(youtube, title):
@@ -224,7 +236,7 @@ def main():
         
     # 3. Generar el Video
     print(f"Generando video para {target_mp3}...")
-    output_mp4 = process_episode(serie.replace(" ", "_"), target_mp3, serie_dir)
+    output_mp4, thumbnail_path = process_episode(serie.replace(" ", "_"), target_mp3, serie_dir)
     
     if not output_mp4 or not os.path.exists(output_mp4):
         print("Error en la generación del video.")
@@ -236,7 +248,7 @@ def main():
     
     # 5. Subir a YouTube
     youtube = build("youtube", "v3", credentials=creds)
-    video_id = upload_video(youtube, output_mp4, title, desc)
+    video_id = upload_video(youtube, output_mp4, title, desc, thumbnail_path)
     
     if video_id:
         # Añadir a la Playlist correspondiente a la Serie
@@ -248,6 +260,10 @@ def main():
         print("¡Proceso Finalizado Exitosamente! Fila marcada como DONE.")
     else:
         print("Error en la subida, no se marcó como DONE.")
+        
+    # Limpiar miniatura temporal
+    if thumbnail_path and os.path.exists(thumbnail_path):
+        os.remove(thumbnail_path)
 
 if __name__ == "__main__":
     main()

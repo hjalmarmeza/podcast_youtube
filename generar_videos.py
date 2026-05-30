@@ -195,14 +195,13 @@ def process_episode(series_name, audio_filename, audio_folder):
         audio_clip.close()
         text_clip.close()
         final_clip.close()
-        if os.path.exists(temp_text_path):
-            os.remove(temp_text_path)
         
+        # En lugar de borrar la imagen temporal, la devolvemos para usarla como miniatura
         print(f"ÉXITO: {output_mp4}")
-        return output_mp4
+        return output_mp4, temp_text_path
     except Exception as e:
         print(f"ERROR procesando {title}: {e}")
-        return None
+        return None, None
 
 def run_test():
     test_folder = 'Atributos_de_Dios'
