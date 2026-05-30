@@ -161,7 +161,9 @@ def main():
     mp3_files = [f for f in os.listdir(serie_dir) if f.endswith('.mp3')]
     target_mp3 = None
     for f in mp3_files:
-        if str(tema).lower()[:10] in f.lower() or str(audio_file) in f:
+        # Se busca si los primeros 10 caracteres del tema están en el nombre del archivo
+        tema_clean = str(tema).lower()[:10]
+        if tema_clean and tema_clean in f.lower():
             target_mp3 = f
             break
             
