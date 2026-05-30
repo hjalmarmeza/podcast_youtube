@@ -151,9 +151,13 @@ def process_episode(series_name, audio_filename, audio_folder):
     
     audio_path = os.path.join(audio_folder, audio_filename)
     cover_path = os.path.join(audio_folder, 'portada.jpg')
-    
     if not os.path.exists(cover_path):
-        return
+        # Buscar cualquier jpg o png en la carpeta
+        imgs = [f for f in os.listdir(audio_folder) if f.lower().endswith(('.jpg', '.png'))]
+        if not imgs:
+            print(f"Error: No se encontró imagen de portada en {audio_folder}")
+            return
+        cover_path = os.path.join(audio_folder, imgs[0])
         
     series_out_dir = os.path.join(OUTPUT_DIR, series_name)
     if not os.path.exists(series_out_dir):

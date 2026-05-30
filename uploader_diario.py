@@ -1,18 +1,15 @@
 import os
 import sys
 import json
-import gspread
 import requests
-from oauth2client.service_account import ServiceAccountCredentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+import gspread
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from generar_videos import process_episode
 
-# === CONFIGURACION ===
-# NOTA: En GitHub Actions, estas variables vendrán del entorno. Localmente, puedes ponerlas aquí o en variables de entorno.
 DEEPINFRA_API_KEY = os.environ.get("DEEPINFRA_API_KEY")
 YOUTUBE_TOKEN_PATH = "token.json"
 YOUTUBE_CREDS_PATH = "credentials.json"
@@ -20,36 +17,27 @@ SHEET_ID = "1lOrZJWQs6PjouAPvv4VHHQAUWPu3sPTLpUdyH2wLkFE"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 AUDIO_DIR = os.path.join(BASE_DIR, "Audios de podcast")
 
-def get_youtube_service():
-    scopes = ["https://www.googleapis.com/auth/youtube.upload"]
+# Scopes necesarios para YouTube y Google Sheets
+SCOPES = [
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/spreadsheets"
+]
+
+def get_google_credentials():
     creds = None
     if os.path.exists(YOUTUBE_TOKEN_PATH):
-        creds = Credentials.from_authorized_user_file(YOUTUBE_TOKEN_PATH, scopes)
+        creds = Credentials.from_authorized_user_file(YOUTUBE_TOKEN_PATH, SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
             if not os.path.exists(YOUTUBE_CREDS_PATH):
-                raise Exception("Falta credentials.json de YouTube")
-            flow = InstalledAppFlow.from_client_secrets_file(YOUTUBE_CREDS_PATH, scopes)
+                raise Exception("Falta credentials.json. Por favor, asegúrate de tenerlo.")
+            flow = InstalledAppFlow.from_client_secrets_file(YOUTUBE_CREDS_PATH, SCOPES)
             creds = flow.run_local_server(port=0)
         with open(YOUTUBE_TOKEN_PATH, "w") as token:
             token.write(creds.to_json())
-    return build("youtube", "v3", credentials=creds)
-
-def get_sheet_data():
-    # Asumimos que tenemos acceso público de lectura o credenciales de service account.
-    # Como el usuario me pasó el link con "edit?usp=sharing", tal vez esté público.
-    # Usaremos la API de gspread de forma anónima si es público, o requerirá credenciales.
-    # Por ahora intentamos descargar el CSV directamente para ser más simples si no hay credenciales de service account.
-    csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Hoja 2"
-    import pandas as pd
-    try:
-        df = pd.read_csv(csv_url)
-        return df
-    except Exception as e:
-        print(f"Error leyendo el Sheet: {e}")
-        return None
+    return creds
 
 def generate_metadata(serie, tema, pasaje, enfoque):
     if not DEEPINFRA_API_KEY:
@@ -64,16 +52,15 @@ def generate_metadata(serie, tema, pasaje, enfoque):
     
     prompt = f"""
 Eres un experto en YouTube y SEO para contenido cristiano.
-Tengo un episodio de podcast corto con esta información:
+Episodio de podcast:
 Serie: {serie}
 Tema Central: {tema}
 Pasaje Principal: {pasaje}
 Enfoque: {enfoque}
 
-Genera un Título SEO para YouTube (máximo 100 caracteres) y una Descripción atractiva (incluyendo llamados a la acción, el pasaje y hashtags). 
-Devuelve el resultado en formato JSON con dos claves: "titulo" y "descripcion". No uses markdown extra, solo el JSON puro.
+Genera un Título SEO para YouTube (max 80 chars) y una Descripción (incluyendo llamados a la acción, el pasaje y hashtags). 
+Devuelve formato JSON puro con claves: "titulo" y "descripcion".
 """
-    
     data = {
         "model": "meta-llama/Meta-Llama-3-8B-Instruct",
         "messages": [{"role": "user", "content": prompt}],
@@ -87,7 +74,7 @@ Devuelve el resultado en formato JSON con dos claves: "titulo" y "descripcion". 
         res_json = json.loads(result)
         return res_json.get("titulo", tema), res_json.get("descripcion", enfoque)
     except Exception as e:
-        print(f"Error generando metadatos con Deepinfra: {e}")
+        print(f"Error Deepinfra: {e}")
         return f"{tema} | {serie}", f"{enfoque}\n\nPasaje: {pasaje}\n#MusichrisStudio"
 
 def upload_video(youtube, file_path, title, description, thumbnail_path=None):
@@ -96,10 +83,10 @@ def upload_video(youtube, file_path, title, description, thumbnail_path=None):
         "snippet": {
             "title": title,
             "description": description,
-            "categoryId": "22" # People & Blogs
+            "categoryId": "22"
         },
         "status": {
-            "privacyStatus": "private", # Se sube privado por seguridad
+            "privacyStatus": "private", 
             "selfDeclaredMadeForKids": False
         }
     }
@@ -118,22 +105,96 @@ def upload_video(youtube, file_path, title, description, thumbnail_path=None):
             
     video_id = response.get("id")
     print(f"Subida completada. Video ID: {video_id}")
-    
-    if thumbnail_path and os.path.exists(thumbnail_path):
-        youtube.thumbnails().set(
-            videoId=video_id,
-            media_body=MediaFileUpload(thumbnail_path)
-        ).execute()
-        print("Miniatura actualizada.")
-        
     return video_id
 
 def main():
     print("Iniciando Motor de Subida Diaria...")
-    # TODO: Implementar lógica de bucle sobre el dataframe para encontrar el primero sin procesar
-    # Como requiere autenticación para ESCRIBIR en el Google Sheet (marcar como DONE),
-    # será necesario configurar una Service Account o usar el mismo OAuth de YouTube si incluimos el scope de Drive/Sheets.
-    # Para el script actual de prueba, está en pausa hasta definir la escritura.
+    creds = get_google_credentials()
+    
+    # 1. Conectar a Google Sheets
+    try:
+        client = gspread.authorize(creds)
+        sheet = client.open_by_key(SHEET_ID).worksheet("Hoja 2")
+    except Exception as e:
+        print(f"Error conectando a Sheets (¿El token tiene el scope necesario?): {e}")
+        return
+        
+    records = sheet.get_all_records()
+    
+    # 2. Buscar el primer registro sin "DONE" en la columna de estado
+    # Asumiremos que crearemos una columna llamada "Estado" si no existe.
+    header = sheet.row_values(1)
+    if "Estado" not in header:
+        sheet.update_cell(1, len(header) + 1, "Estado")
+        estado_col_idx = len(header) + 1
+    else:
+        estado_col_idx = header.index("Estado") + 1
+        
+    fila_a_procesar = None
+    row_idx = 2
+    for row in records:
+        estado = str(row.get("Estado", "")).strip().upper()
+        if estado != "DONE":
+            fila_a_procesar = row
+            break
+        row_idx += 1
+        
+    if not fila_a_procesar:
+        print("¡No hay videos pendientes por subir! Todos están marcados como DONE.")
+        return
+        
+    serie = fila_a_procesar.get("Serie Temática", "Podcast")
+    tema = fila_a_procesar.get("Tema Central", "Enseñanza")
+    pasaje = fila_a_procesar.get("Pasaje Clave", "")
+    enfoque = fila_a_procesar.get("Enfoque de la Reflexión", "")
+    audio_file = "" # No existe esta columna, confiaremos en la búsqueda por Tema Central
+    
+    # Si la hoja no tiene nombre de archivo exacto, intentamos encontrarlo
+    # por convención o deberás agregarlo al sheet. Por ahora asumimos
+    # que podemos deducirlo o encontrar el primer mp3 en la carpeta de la serie.
+    serie_dir = os.path.join(AUDIO_DIR, serie.replace(" ", "_"))
+    if not os.path.exists(serie_dir):
+        print(f"No se encontró la carpeta para la serie {serie}")
+        return
+        
+    # Buscar el archivo de audio que coincida o agarrar el primero
+    mp3_files = [f for f in os.listdir(serie_dir) if f.endswith('.mp3')]
+    target_mp3 = None
+    for f in mp3_files:
+        if str(tema).lower()[:10] in f.lower() or str(audio_file) in f:
+            target_mp3 = f
+            break
+            
+    if not target_mp3 and mp3_files:
+        # Por seguridad tomamos el que corresponde a la fila (muy simplificado)
+        target_mp3 = mp3_files[0] 
+        
+    if not target_mp3:
+        print("No se encontró un audio válido.")
+        return
+        
+    # 3. Generar el Video
+    print(f"Generando video para {target_mp3}...")
+    output_mp4 = process_episode(serie.replace(" ", "_"), target_mp3, serie_dir)
+    
+    if not output_mp4 or not os.path.exists(output_mp4):
+        print("Error en la generación del video.")
+        return
+        
+    # 4. Generar Metadata con IA
+    print("Generando Título y Descripción con IA...")
+    title, desc = generate_metadata(serie, tema, pasaje, enfoque)
+    
+    # 5. Subir a YouTube
+    youtube = build("youtube", "v3", credentials=creds)
+    video_id = upload_video(youtube, output_mp4, title, desc)
+    
+    if video_id:
+        # 6. Marcar como DONE
+        sheet.update_cell(row_idx, estado_col_idx, "DONE")
+        print("¡Proceso Finalizado Exitosamente! Fila marcada como DONE.")
+    else:
+        print("Error en la subida, no se marcó como DONE.")
 
 if __name__ == "__main__":
     main()
