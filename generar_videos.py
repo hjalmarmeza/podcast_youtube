@@ -28,8 +28,8 @@ def create_text_overlay(image_path, text, output_path):
     overlay = Image.new('RGBA', (img_width, img_height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
     
-    # Intentar fuente normal (8% de altura)
-    base_font_size = int(img_height * 0.08)
+    # Intentar fuente normal (15% de altura para que se lea enorme en celulares)
+    base_font_size = int(img_height * 0.15)
     try:
         font = ImageFont.truetype(FONT_PATH, base_font_size)
     except IOError:
@@ -56,9 +56,9 @@ def create_text_overlay(image_path, text, output_path):
     if current_line:
         lines.append(" ".join(current_line))
         
-    # Si hay más de una línea, reducimos el tamaño de la fuente al 6% para que no tape tanto fondo
+    # Si hay más de una línea, reducimos el tamaño de la fuente al 10%
     if len(lines) > 1:
-        base_font_size = int(img_height * 0.06)
+        base_font_size = int(img_height * 0.10)
         try:
             font = ImageFont.truetype(FONT_PATH, base_font_size)
         except IOError:
