@@ -107,6 +107,43 @@ def upload_video(youtube, file_path, title, description, thumbnail_path=None):
     print(f"Subida completada. Video ID: {video_id}")
     return video_id
 
+def get_or_create_playlist(youtube, title):
+    # Buscar si ya existe la playlist
+    request = youtube.playlists().list(part="snippet", mine=True, maxResults=50)
+    response = request.execute()
+    
+    for item in response.get("items", []):
+        if item["snippet"]["title"].lower() == title.lower():
+            return item["id"]
+            
+    # Si no existe, crearla
+    print(f"Creando nueva Playlist: {title}")
+    request = youtube.playlists().insert(
+        part="snippet,status",
+        body={
+            "snippet": {"title": title},
+            "status": {"privacyStatus": "private"}
+        }
+    )
+    response = request.execute()
+    return response["id"]
+
+def add_video_to_playlist(youtube, video_id, playlist_id):
+    print(f"Añadiendo video a la Playlist...")
+    request = youtube.playlistItems().insert(
+        part="snippet",
+        body={
+            "snippet": {
+                "playlistId": playlist_id,
+                "resourceId": {
+                    "kind": "youtube#video",
+                    "videoId": video_id
+                }
+            }
+        }
+    )
+    request.execute()
+
 def main():
     print("Iniciando Motor de Subida Diaria...")
     creds = get_google_credentials()
@@ -192,6 +229,10 @@ def main():
     video_id = upload_video(youtube, output_mp4, title, desc)
     
     if video_id:
+        # Añadir a la Playlist correspondiente a la Serie
+        playlist_id = get_or_create_playlist(youtube, serie)
+        add_video_to_playlist(youtube, video_id, playlist_id)
+        
         # 6. Marcar como DONE
         sheet.update_cell(row_idx, estado_col_idx, "DONE")
         print("¡Proceso Finalizado Exitosamente! Fila marcada como DONE.")
