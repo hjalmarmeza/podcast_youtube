@@ -19,7 +19,7 @@ AUDIO_DIR = os.path.join(BASE_DIR, "Audios de podcast")
 
 # Scopes necesarios para YouTube y Google Sheets
 SCOPES = [
-    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/youtube",
     "https://www.googleapis.com/auth/spreadsheets"
 ]
 
