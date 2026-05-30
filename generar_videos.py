@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw, ImageFont
 from moviepy import AudioFileClip, ImageClip, CompositeVideoClip, VideoClip
 import pandas as pd
 
-BASE_DIR = '/Users/hjalmarmeza/Downloads/Antigravity/Posible proyecto'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 AUDIO_DIR = os.path.join(BASE_DIR, 'Audios de podcast')
 OUTPUT_DIR = os.path.join(BASE_DIR, 'Videos_Finales')
 FONT_PATH = os.path.join(BASE_DIR, 'Montserrat-Bold.ttf')
