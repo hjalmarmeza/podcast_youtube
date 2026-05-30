@@ -37,6 +37,8 @@ El sistema está compuesto por los siguientes módulos:
 > Cuando el usuario regrese y estemos cerca de haber subido **100 episodios** (o si la columna "DONE" del Excel está cerca de la fila 100), DEBO INICIAR UN PROTOCOLO DE LIMPIEZA.
 > 
 > *Contexto:* Decidimos NO borrar los audios automáticamente para que el usuario conserve los archivos en su Mac al sincronizar. Sin embargo, GitHub tiene un límite de 1 GB. A los 100 episodios, debemos implementar una rama nueva o un protocolo de vaciado en Git para liberar espacio en el repositorio sin afectar los archivos locales del usuario.
+> 
+> **REGLA ESTRICTA DE BORRADO:** El proceso de limpieza en la nube **SOLO** debe borrar los audios `.mp3` correspondientes a las filas que ya digan "DONE" en el Excel (es decir, los que ya están en YouTube). Bajo ningún concepto se deben borrar los archivos que aún están pendientes de subir.
 
 ---
 
