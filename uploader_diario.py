@@ -195,18 +195,28 @@ def main():
         return
         
     # Buscar el archivo de audio que coincida o agarrar el primero
+    import unicodedata
+    def remove_accents(input_str):
+        nfkd_form = unicodedata.normalize('NFKD', str(input_str))
+        return u"".join([c for c in nfkd_form if not unicodedata.combining(c)])
+
     mp3_files = [f for f in os.listdir(serie_dir) if f.endswith('.mp3')]
     target_mp3 = None
     for f in mp3_files:
-        # Se busca si los primeros 10 caracteres del tema están en el nombre del archivo
-        tema_clean = str(tema).lower()[:10]
-        if tema_clean and tema_clean in f.lower():
+        # Remover tildes y convertir a minúsculas
+        tema_clean = remove_accents(str(tema)).lower()[:10]
+        file_clean = remove_accents(f).lower()
+        if tema_clean and tema_clean in file_clean:
             target_mp3 = f
             break
             
     if not target_mp3 and mp3_files:
-        # Por seguridad tomamos el que corresponde a la fila (muy simplificado)
-        target_mp3 = mp3_files[0] 
+        # Por seguridad, si no encuentra nombre, ordenar y tratar de deducir por número
+        mp3_files.sort() # Asegura que 1, 2, 3 estén en orden
+        # Determinar qué número de episodio es en la serie basándonos en cuántos DONE hay en la serie
+        # Para ser seguros por ahora, abortamos si no encuentra el archivo exacto
+        print(f"Error crítico: No pude encontrar un audio que coincida con '{tema}'. Abortando para no subir el video equivocado.")
+        return
         
     if not target_mp3:
         print("No se encontró un audio válido.")
