@@ -196,9 +196,20 @@ def process_episode(series_name, audio_filename, audio_folder):
         text_clip.close()
         final_clip.close()
         
-        # En lugar de borrar la imagen temporal, la devolvemos para usarla como miniatura
+        # Generar una miniatura real combinando el fondo y el texto
+        final_thumbnail_path = os.path.join(series_out_dir, f"thumb_{title}.jpg")
+        with Image.open(cover_path).convert("RGBA") as bg_img:
+            with Image.open(temp_text_path) as txt_img:
+                # Componer el texto sobre la imagen de fondo
+                composed = Image.alpha_composite(bg_img, txt_img)
+                composed.convert("RGB").save(final_thumbnail_path, "JPEG")
+        
+        # Borrar la imagen temporal transparente
+        if os.path.exists(temp_text_path):
+            os.remove(temp_text_path)
+            
         print(f"ÉXITO: {output_mp4}")
-        return output_mp4, temp_text_path
+        return output_mp4, final_thumbnail_path
     except Exception as e:
         print(f"ERROR procesando {title}: {e}")
         return None, None
